@@ -1,146 +1,197 @@
 # Wiki — Desktop Voice Assistant
 
-Wiki is a desktop voice assistant built in Python, focused on reliable local execution and practical daily productivity workflows. The project is designed to run on Windows and combines wake-word detection, speech recognition, natural-language response generation, text-to-speech, automation tools, and persistent memory.
+Wiki is a Python-based desktop voice assistant for Windows. It is currently implemented as a modular assistant runtime with wake-word activation, speech pipeline hooks, command/response intelligence powered by CSV datasets, and built-in desktop automation tools.
 
-## Repository
+This README reflects the current repository implementation on the `master` branch.
 
-- **Name:** `labonysur-cloud/wiki`
+## Repository Information
+
+- **Repository:** `labonysur-cloud/wiki`
 - **Description:** Wiki is a desktop voice assistant.
-- **Primary Goal:** Provide a personal, extensible assistant that can run with low latency and minimal cloud dependency.
+- **Default Branch:** `master`
 
-## Core Capabilities
+## Current Implementation Status
 
-- Wake-word activation ("Hey Wiki")
-- Speech-to-text (offline-friendly transcription pipeline)
-- Text-to-speech response generation
-- Assistant reasoning/response layer (LLM-powered brain module)
-- Timer and productivity task orchestration
-- Local memory for conversation and preferences
-- Optional desktop UI/tray integration
+The codebase is in an active foundational stage.
 
-## Technical Architecture
+Implemented and populated modules currently include:
 
-The project follows a modular structure so each capability can be developed and tested independently.
+- `app.py` — main assistant runtime loop
+- `core/brain.py` — command matching and response engine
+- `core/tools.py` — timers, app launching, and website opening
+- `core/db.py` — MySQL connection helper
 
-### Entry and Runtime
+Several planned modules and tests exist as placeholders (empty files) and are ready for incremental implementation.
 
-- `app.py`: Main application runtime and event loop.
-- `config.yaml`: Runtime configuration for assistant behavior, prompts, voices, timers, and feature toggles.
+## Technical Stack (Based on Real Code)
 
-### Core Layer (`core/`)
+### Language and Runtime
 
-- `wakeword.py`: Wake-word detection pipeline.
-- `stt.py`: Speech-to-text handling and transcription integration.
-- `tts.py`: Text-to-speech generation pipeline.
-- `brain.py`: Response and decision layer for conversational logic.
-- `tools.py`: System tools (timers, helper actions, command execution pathways).
-- `memory.py`: Persistence adapter for storing user context and assistant memory.
-- `utils.py`: Shared helper utilities (logging, parsing, audio helpers).
+- **Python 3.x**
 
-### Skill Layer (`skills/`)
+### Libraries Used in Current Code
 
-Task-oriented modules for specialized domains:
+From implemented files:
 
-- `cooking.py`
-- `study.py`
-- `media.py`
-- `documents.py`
+- `pandas` (dataset ingestion and table operations)
+- `numpy` (similarity score array operations)
+- `mysql-connector-python` via `mysql.connector` (database connectivity)
+- Python standard library: `time`, `threading`, `subprocess`, `webbrowser`, `re`, `os`
 
-### UI Layer (`ui/`)
+> Note: The repository currently uses `requirements.text` (empty) instead of `requirements.txt`. Dependency pinning is not yet defined in the repo.
 
-Optional user interface components:
+## Project Structure
 
-- `tray.py`: Tray-based desktop interaction surface.
-- `overlay.py`: Overlay for live assistant feedback/transcript interaction.
+```text
+wiki/
+├── app.py
+├── config.yaml
+├── requirements.text
+├── README.md
+├── core/
+│   ├── __init__.py
+│   ├── brain.py
+│   ├── db.py
+│   ├── memory.py
+│   ├── stt.py
+│   ├── tools.py
+│   ├── tts.py
+│   ├── utils.py
+│   └── wakeword.py
+├── skills/
+│   ├── __init__.py
+│   ├── cooking.py
+│   ├── documents.py
+│   ├── media.py
+│   └── study.py
+├── ui/
+│   ├── __init__.py
+│   ├── overlay.py
+│   └── tray.py
+├── data/
+└── tests/
+    ├── test_brain.py
+    ├── test_stt.py
+    ├── test_timers.py
+    └── test_tools.py
+```
 
-### Data and Persistence (`data/`)
+## Runtime Architecture
 
-- `memory.db`: Local persistent memory store.
-- `logs/`: Runtime and debug logs.
-- `audio/`: Temporary audio artifacts for recording and playback pipelines.
+### 1) Application Orchestration (`app.py`)
 
-### Tests (`tests/`)
+The assistant loop follows this flow:
 
-- `test_timers.py`
-- `test_stt.py`
-- `test_tools.py`
-- `test_brain.py`
+1. Initialize `Brain` with dataset paths:
+   - `datasets/commands.csv`
+   - `datasets/cooking.csv`
+   - `datasets/study.csv`
+2. Wait for wake-word detection via `core.wakeword.detect_wakeword()`.
+3. Capture transcribed user input via `core.stt.listen()`.
+4. Route request to `Brain.respond()`.
+5. Speak output through `core.tts.speak()`.
+6. Continue loop with a CPU-friendly sleep interval.
 
-## Suggested Runtime Flow
+### 2) Command Intelligence (`core/brain.py`)
 
-1. Application starts through `app.py`.
-2. Wake-word listener waits for activation phrase.
-3. User speech is captured and transcribed in `core/stt.py`.
-4. Intent/response generation is handled in `core/brain.py`.
-5. If required, actions are delegated through `core/tools.py` or skill modules.
-6. Response text is synthesized by `core/tts.py` and played to the user.
-7. Key context is stored through `core/memory.py` into local persistence.
+`Brain` currently provides:
 
-## Installation
+- Multi-CSV dataset loading and merge using `pandas.concat`
+- Required schema validation (`command`, `response` columns)
+- Optional command `category` handling
+- Keyword-overlap similarity scoring
+- Best-match selection with threshold-based fallback response
+- Tool routing when matched category is `tools`
+- Dynamic command insertion through `add_command(...)`
+
+#### Matching Strategy
+
+Similarity is computed using token overlap:
+
+- Convert both input and command to lowercase token sets
+- Score = overlap size / max(command token count, 1)
+- Select highest score (`numpy.argmax`)
+- If score < `0.1`, return fallback response
+
+### 3) Tool Execution Layer (`core/tools.py`)
+
+Current tool features:
+
+- **Timers:** named timers using background threads
+- **App launchers:** configured for Windows `calc.exe` and `notepad.exe`
+- **Website openers:** auto-prefixes non-HTTP input with `https://www.`
+
+### 4) Data Connectivity (`core/db.py`)
+
+`create_connection()` connects to local MySQL:
+
+- Host: `localhost`
+- Database: `wiki_db`
+- Connector: `mysql.connector`
+
+This module establishes the base for persistent storage and structured assistant state.
+
+## Existing Integration Points (Declared, Not Yet Implemented)
+
+The following imports/interfaces are already wired in runtime but module implementations are currently placeholders:
+
+- `core.stt.listen`
+- `core.tts.speak`
+- `core.wakeword.detect_wakeword`
+- `core.memory.Memory`
+
+This means the architecture is already defined for full voice interaction; implementation can be completed module-by-module without changing high-level app flow.
+
+## Setup Instructions (Current State)
 
 ### Prerequisites
 
 - Python 3.10+
-- Windows environment (primary target)
-- Audio input/output devices configured correctly
+- Windows (for current app-launch integrations)
+- MySQL server (if using `core/db.py`)
 
-### Setup
+### Environment Setup
 
 ```bash
 git clone https://github.com/labonysur-cloud/wiki.git
 cd wiki
 python -m venv .venv
 .venv\Scripts\activate
-pip install -r requirements.txt
+pip install pandas numpy mysql-connector-python
 ```
 
-## Running the Assistant
+> Because `requirements.text` is currently empty, dependencies are listed manually above.
+
+## Run
 
 ```bash
 python app.py
 ```
 
-## Configuration
+## Important Implementation Notes
 
-Use `config.yaml` to control runtime behavior, including:
+- `config.yaml` currently exists but is empty.
+- `data/` directory exists for persistent assets/storage.
+- `tests/` files are present as scaffolding but currently empty.
+- Dataset CSVs referenced by `app.py` must exist under a `datasets/` directory for runtime execution.
 
-- Wake-word and activation parameters
-- STT/TTS model or provider settings
-- Voice profile and response style
-- Default timer/task behavior
-- Logging verbosity and debug flags
+## Recommended Next Engineering Steps
 
-## Testing
+1. Implement `core/stt.py`, `core/tts.py`, and `core/wakeword.py` concrete pipelines.
+2. Implement `core/memory.py` and integrate it with MySQL or SQLite persistence.
+3. Add `requirements.txt` with pinned versions.
+4. Create and validate dataset files under `datasets/`.
+5. Populate tests for `Brain`, tool routing, and end-to-end loop behavior.
+6. Move sensitive DB credentials to environment variables.
 
-Run tests with:
+## Security and Configuration Guidance
 
-```bash
-pytest -q
-```
+The current `core/db.py` includes hardcoded connection credentials. For production-grade practice:
 
-## Engineering Priorities
-
-This repository is structured for:
-
-- **Modularity:** Clear boundaries between core engine, skills, UI, and storage.
-- **Extensibility:** New skills can be added with minimal core coupling.
-- **Local-first reliability:** Persistent memory and local execution paths where possible.
-- **Maintainability:** Dedicated test modules for critical assistant subsystems.
-
-## Current Development Notes
-
-- The repository currently includes foundational components for wake-word, voice interaction, memory, tools, and domain skills.
-- Desktop assistant behavior is centered on productivity and personal workflow support.
-- The architecture supports iterative upgrades to STT/TTS backends and intelligence layers without breaking overall flow.
-
-## Contributing
-
-Contributions are welcome. For changes affecting architecture or feature behavior, include:
-
-- A clear problem statement
-- Implementation notes
-- Test coverage updates
+- Store credentials in environment variables.
+- Load config from `.env` or secure secret manager.
+- Never commit real passwords to source control.
 
 ## License
 
-No license is currently defined in this repository. Add a license file before production or public distribution.
+No license file is currently present in the repository. Add one before public distribution or external contributions.
